@@ -189,13 +189,12 @@
 // null falls back to a manual result code, which works but loses anyone
 // who forgets to send it.
 // ---------------------------------------------------------------------
-// ---------------------------------------------------------------------
-// >>> SET THIS BEFORE PUBLISHING <<<
-// Paste the Google Apps Script /exec URL (study/README.md section 3).
-// Leaving it null is SAFE -- the page falls back to showing a result
-// code -- but a localhost URL is NOT: a published page would post to
-// each visitor's own machine, fail silently, and lose every response.
-const RESULTS_ENDPOINT = null;
+// Google Apps Script receiver, writing one row per answer into the
+// linked Sheet. Deployment must be "Execute as: Me" and
+// "Who has access: ANYONE" -- participants are not signed in, and any
+// other setting bounces the request to a Drive error page before the
+// script runs.
+const RESULTS_ENDPOINT = "https://script.google.com/macros/s/AKfycbyLw9jspzqmxg7hRmcupCNlRk8rrHyMCULVRRSPtJSNkLhVeZRzLkHGJ0vAay9dIX-jwA/exec";
 
 const SAVE_KEY  = 'uav-rooftype-v2';
 const QUEUE_KEY = 'uav-rooftype-queue-v2';
