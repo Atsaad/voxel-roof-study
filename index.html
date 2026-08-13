@@ -95,7 +95,6 @@
   .q{font-weight:600;margin:0 0 .7em}
 
   .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-  @media (max-width:620px){ .opts{grid-template-columns:repeat(2,1fr)} }
   .opt{background:var(--card);border:2px solid var(--line);border-radius:11px;
        padding:.7em .55em .6em;cursor:pointer;font:inherit;color:inherit;
        display:flex;flex-direction:column;align-items:center;gap:.3em;
@@ -108,6 +107,26 @@
   .opt b{font-size:.86rem;font-weight:600;text-align:center;line-height:1.25}
   .opt small{font-size:.72rem;color:var(--muted);text-align:center;line-height:1.3}
   .opt.wide{grid-column:1/-1;flex-direction:row;justify-content:center;gap:.6em}
+
+  /* Mobile: keep the whole trial close to one viewport. With a
+     full-width square stimulus and a 2-column grid, 13 options ran to
+     seven rows and the page was roughly 1200 px tall on a ~660 px
+     viewport -- forcing the scroll that was being mis-recorded as an
+     answer. Three tighter columns give five rows instead of seven,
+     cutting roughly 320 px without touching the stimulus. */
+  @media (max-width:620px){
+    .opts{grid-template-columns:repeat(3,1fr);gap:7px}
+    .opt{padding:.5em .3em .45em;gap:.2em}
+    .opt b{font-size:.82rem;line-height:1.15}
+    .opt small{font-size:.66rem;line-height:1.1}
+    .opt img.ricon{width:60px;margin:-4px 0 -3px}
+    /* The stimulus is deliberately NOT shrunk: mobile participants must
+       see the same building at the same size as before, or the change
+       would alter the measurement rather than fix the input bug. The
+       saving comes entirely from the option grid. */
+    .stim{padding:7px;margin-bottom:.8em}
+    .spinhint{margin:-.2em 0 .8em;font-size:.75rem}
+  }
 
   code{background:var(--line);padding:.15em .4em;border-radius:5px;font-size:.8em;
        word-break:break-all;display:block;margin:.7em 0}
@@ -326,6 +345,13 @@ fetch('stimuli.json').then(r => r.json()).then(d => {
   flush();
 }).catch(() => alert('Could not load the images. Please reload the page.'));
 
+/* Guards against scroll gestures being recorded as answers (see the
+   listeners attached to each option below). `lastScrollAt` is updated on
+   every scroll; a click arriving within 400 ms of one is treated as the
+   tail of that scroll, not as a deliberate choice. */
+let lastScrollAt = 0, touchStart = null, touchMoved = false;
+addEventListener('scroll', () => { lastScrollAt = Date.now(); }, {passive: true});
+
 function buildOptions(){
   const box = document.getElementById('opts');
   box.innerHTML = '';
@@ -342,7 +368,28 @@ function buildOptions(){
                                   : `<img class="ricon" src="roof/${o.v}.png" alt="">`)
                 + '<b>' + o.n + '</b>'
                 + (o.h ? '<small>' + o.h + '</small>' : '');
-    b.onclick = () => choose(o.v);
+    // A tap that ends a scroll must not count as an answer. On mobile the
+    // option grid is taller than the viewport, so a participant scrolls
+    // down to read the options and back up for the next building; with a
+    // bare click handler, the finger landing on a card during that scroll
+    // is recorded as a choice. Reported repeatedly by participants, and
+    // visible in the data as answers arriving 0.14-0.16 s apart -- below
+    // choice-reaction time for 13 alternatives.
+    b.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      touchStart = {x: t.clientX, y: t.clientY};
+      touchMoved = false;
+    }, {passive: true});
+    b.addEventListener('touchmove', e => {
+      if (!touchStart) return;
+      const t = e.touches[0];
+      if (Math.hypot(t.clientX - touchStart.x, t.clientY - touchStart.y) > 10)
+        touchMoved = true;
+    }, {passive: true});
+    b.onclick = () => {
+      if (touchMoved || Date.now() - lastScrollAt < 400) { touchMoved = false; return; }
+      choose(o.v);
+    };
     box.appendChild(b);
   });
 }
