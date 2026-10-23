@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roof type study — TUM Chair of Geoinformatics</title>
+<style>
+  :root{
+    --bg:#fcfcfb; --fg:#17171a; --muted:#6a6a72; --faint:#8d8d95;
+    --line:#e4e4e0; --card:#fff; --accent:#2f6f4e; --accent-soft:#eaf3ee;
+    --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#131417; --fg:#ececeb; --muted:#9a9aa2; --faint:#7d7d86;
+           --line:#292b31; --card:#1c1e22; --accent:#6cbf90; --accent-soft:#1b2a22;
+           --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); }
+  }
+  *{box-sizing:border-box}
+  /* Must outrank the element rules below. `.stim img{display:block}` is
+     more specific than the UA's `[hidden]{display:none}`, so the fallback
+     still -- which has no src until the sprite sheet actually fails --
+     rendered as a broken-image placeholder AND, being a flex sibling,
+     took half the row from the rotating view. */
+  [hidden]{display:none !important}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       display:flex;flex-direction:column;align-items:center;padding:28px 18px 64px}
+  .wrap{width:100%;max-width:720px}
+
+  h1{font-size:1.75rem;line-height:1.2;margin:0 0 .35em;letter-spacing:-.02em}
+  h2{font-size:1.02rem;margin:2em 0 .5em;letter-spacing:-.01em}
+  h2:first-of-type{margin-top:1.6em}
+  p{margin:0 0 1em}
+  .sub{color:var(--muted);font-size:1.02rem;margin:0 0 1.8em}
+  .eyebrow{font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;
+           color:var(--accent);font-weight:600;margin:0 0 .7em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:26px 28px;box-shadow:var(--shadow)}
+  @media (max-width:520px){ .card{padding:20px} }
+
+  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:1.4em 0 .4em}
+  @media (max-width:520px){ .facts{grid-template-columns:1fr 1fr} }
+  .fact{background:var(--accent-soft);border-radius:10px;padding:12px 14px}
+  .fact b{display:block;font-size:1.28rem;line-height:1.2;letter-spacing:-.02em}
+  .fact span{font-size:.78rem;color:var(--muted)}
+
+  .steps{counter-reset:s;list-style:none;padding:0;margin:.4em 0 0}
+  .steps li{counter-increment:s;position:relative;padding-left:2.1em;margin:.55em 0}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:.12em;
+    width:1.5em;height:1.5em;border-radius:50%;background:var(--accent);color:#fff;
+    font-size:.74rem;font-weight:700;display:grid;place-items:center}
+
+  .note{font-size:.88rem;color:var(--muted)}
+  .rule{height:1px;background:var(--line);margin:1.8em 0}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:1.6em;align-items:center}
+  button.act{font:inherit;font-weight:600;background:var(--accent);color:#fff;border:0;
+             border-radius:9px;padding:.72em 1.5em;cursor:pointer}
+  button.act:hover{filter:brightness(1.07)}
+  button.ghost{font:inherit;background:transparent;color:var(--accent);
+               border:1px solid var(--accent);border-radius:9px;padding:.72em 1.3em;cursor:pointer}
+  button.link{background:none;border:0;color:var(--faint);cursor:pointer;
+              text-decoration:underline;font:inherit;padding:.4em}
+
+  /* ---- task ---- */
+  .bar{height:5px;background:var(--line);border-radius:5px;overflow:hidden;margin:0 0 .55em}
+  .bar>i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s ease}
+  .meta{display:flex;justify-content:space-between;font-size:.84rem;
+        color:var(--muted);margin-bottom:1em}
+  .stim{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:10px;display:flex;justify-content:center;margin-bottom:1.2em;
+        box-shadow:var(--shadow)}
+  .stim img{width:100%;max-width:620px;height:auto;border-radius:9px;display:block}
+  /* Rotation. One sprite sheet per building, animated by moving the
+     background: 12 frames arrive in a single request rather than 12, and
+     no animation library is needed. A fixed viewpoint can hide the very
+     thing being asked -- a monopitch seen end-on reads as flat. */
+  .spin{width:100%;max-width:620px;aspect-ratio:1/1;border-radius:9px;
+        background-repeat:no-repeat;background-size:400% 300%;
+        cursor:grab;touch-action:pan-y;user-select:none}
+  .spin:active{cursor:grabbing}
+  /* Rotation controls. Some participants want to stop on a view and
+     study it; a fixed animation takes that away and makes the task
+     harder than the question intends. Both settings persist across all
+     128 trials, so they are chosen once, not per building. */
+  .spinhint{display:flex;align-items:center;justify-content:center;gap:.9em;
+            flex-wrap:wrap;margin:-.3em 0 1.1em;font-size:.8rem}
+  .spinbtn{font:inherit;font-size:.8rem;background:transparent;color:var(--accent);
+           border:1px solid var(--line);border-radius:7px;padding:.32em .8em;
+           cursor:pointer;min-width:5.9em}
+  .spinbtn:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .speed{display:flex;align-items:center;gap:.45em;color:var(--muted)}
+  .speed input{width:104px;accent-color:var(--accent);cursor:pointer}
+  .q{font-weight:600;margin:0 0 .7em}
+
+  .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .opt{background:var(--card);border:2px solid var(--line);border-radius:11px;
+       padding:.7em .55em .6em;cursor:pointer;font:inherit;color:inherit;
+       display:flex;flex-direction:column;align-items:center;gap:.3em;
+       transition:border-color .12s,background .12s,transform .08s}
+  .opt:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .opt:active{transform:scale(.98)}
+  .opt img.ricon{display:block;width:88px;height:auto;margin:-6px 0 -4px}
+  .opt .qmark{display:block;font-size:1.9rem;font-weight:700;
+              color:var(--muted);line-height:1.5}
+  .opt b{font-size:.86rem;font-weight:600;text-align:center;line-height:1.25}
+  .opt small{font-size:.72rem;color:var(--muted);text-align:center;line-height:1.3}
+  .opt.wide{grid-column:1/-1;flex-direction:row;justify-content:center;gap:.6em}
+
+  /* Mobile: keep the whole trial close to one viewport. With a
+     full-width square stimulus and a 2-column grid, 13 options ran to
+     seven rows and the page was roughly 1200 px tall on a ~660 px
+     viewport -- forcing the scroll that was being mis-recorded as an
+     answer. Three tighter columns give five rows instead of seven,
+     cutting roughly 320 px without touching the stimulus. */
+  @media (max-width:620px){
+    .opts{grid-template-columns:repeat(3,1fr);gap:7px}
+    .opt{padding:.5em .3em .45em;gap:.2em}
+    .opt b{font-size:.82rem;line-height:1.15}
+    .opt small{font-size:.66rem;line-height:1.1}
+    .opt img.ricon{width:60px;margin:-4px 0 -3px}
+    /* The stimulus is deliberately NOT shrunk: mobile participants must
+       see the same building at the same size as before, or the change
+       would alter the measurement rather than fix the input bug. The
+       saving comes entirely from the option grid. */
+    .stim{padding:7px;margin-bottom:.8em}
+    .spinhint{margin:-.2em 0 .8em;font-size:.75rem}
+  }
+
+  code{background:var(--line);padding:.15em .4em;border-radius:5px;font-size:.8em;
+       word-break:break-all;display:block;margin:.7em 0}
+
+  /* Send status. The previous build failed silently: a failed POST left
+     the queue growing with nothing on screen to say so. This makes the
+     state visible at all times and gives an explicit retry. */
+  .status{display:flex;align-items:center;gap:.55em;margin-top:1.1em;
+          font-size:.86rem;color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none}
+  .dot.sending{background:#eda100;animation:pulse 1s ease-in-out infinite}
+  .dot.saved{background:#0ca30c}
+  .dot.pending{background:#d03b3b}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .status button.link{padding:0 .2em;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ==================== LANDING ==================== -->
+<div id="intro" class="card">
+  <p class="eyebrow">TUM · Chair of Geoinformatics · Master's thesis</p>
+  <h1>Can you tell what roof a building has?</h1>
+  <p class="sub">You will see 3D building models and name the roof type of
+    each. Most people finish in 5–10 minutes. No account, no personal
+    data, and you can stop whenever you like — partial answers still
+    count.</p>
+
+  <div class="facts">
+    <div class="fact"><b id="fN">—</b><span>buildings</span></div>
+    <div class="fact"><b>5–10 min</b><span>typical time</span></div>
+    <div class="fact"><b>Anonymous</b><span>no sign-in</span></div>
+  </div>
+
+  <h2>What this research is about</h2>
+  <p>Cities are increasingly modelled digitally — every building stored not
+    just as a shape, but with meaning attached: which surfaces are walls,
+    which are roofs, which touch the ground. These semantic 3D city models
+    drive energy simulation, solar-potential studies and planning tools.</p>
+  <p>Creating <em>hypothetical</em> buildings for such models is still largely
+    manual, which limits how many planning scenarios anyone can explore. This
+    thesis trains a generative machine-learning model to synthesise new
+    buildings directly, converted from open CityGML city data into a 3D grid
+    of labelled cubes (voxels) at half-metre resolution. You ask for a
+    building of a certain type, height and roof, and the model produces one
+    that has never existed.</p>
+
+  <h2>Why this study exists</h2>
+  <p>The model is already measured automatically on many things — how
+    realistic the geometry is, whether surfaces are correctly labelled, and
+    whether a requested roof type actually changes the shape produced. Those
+    are numbers computed by software.</p>
+  <p><strong>What no automatic measure can tell us is whether the result reads
+    as the right building to a person.</strong> A model can score well on
+    every metric and still produce something a human would not recognise. This
+    study is the part of the evaluation that only people can provide.</p>
+  <p>Your answers are compared against the same task on <em>real</em>
+    buildings from city data. That real-building score is the benchmark: it
+    shows how legibly a roof type can be read from this kind of 3D model at
+    all. If the generated buildings are as readable as the real ones, the
+    model expresses roof types the way it should.</p>
+
+  <h2>What you will do</h2>
+  <ol class="steps">
+    <li>You see one building at a time, rendered as 3D blocks.</li>
+    <li>You pick the roof type it appears to have, from a list with diagrams.</li>
+    <li>If you cannot tell, choose <em>none of the above</em> or skip it —
+      both are useful, and guessing wildly is not.</li>
+  </ol>
+  <p class="note" style="margin-top:1em">Some buildings are real and some are
+    machine-generated. You are not told which, and it makes no difference to
+    the task. There is no feedback between items — just go with your instinct.</p>
+
+  <div class="rule"></div>
+  <p class="note"><strong>Privacy.</strong> This page records only which option
+    you chose for each image, plus a random number generated in your browser so
+    that answers from one sitting can be grouped. No name, email, account,
+    cookie, free text, or tracking of any kind. Nothing collected could
+    identify you. Your progress is stored in this browser, so you can close
+    the tab and continue later.</p>
+
+  <div class="row">
+    <button class="act" onclick="start()">Start</button>
+  </div>
+</div>
+
+<!-- ==================== TASK ==================== -->
+<div id="task" hidden>
+  <div class="bar"><i id="prog"></i></div>
+  <div class="meta"><span id="counter"></span><span id="answered"></span></div>
+  <div class="stim">
+    <div id="spin" class="spin" role="img" aria-label="rotating 3D model of a building"></div>
+    <img id="stim" alt="3D model of a building" hidden>
+  </div>
+  <div class="spinhint">
+    <button type="button" class="spinbtn" id="playBtn" onclick="togglePlay()"
+            aria-label="pause rotation">&#10073;&#10073; Pause</button>
+    <label class="speed">Speed
+      <input type="range" id="speed" min="0" max="5" step="1" value="2"
+             oninput="setSpeed(this.value)" aria-label="rotation speed">
+    </label>
+    <span class="note">or drag the building</span>
+  </div>
+  <p class="q">Which roof type does this building have?</p>
+  <div class="opts" id="opts"></div>
+  <div class="row">
+    <button class="ghost" onclick="skip()">Can't tell — skip</button>
+    <button class="act" onclick="finish()">Stop &amp; submit</button>
+  </div>
+  <div class="status" id="status">
+    <span class="dot" id="dot"></span>
+    <span id="statusText">Nothing to send yet.</span>
+    <button class="link" id="sendNow" hidden onclick="sendNow()">Submit now</button>
+  </div>
+</div>
+
+<!-- ==================== DONE ==================== -->
+<div id="done" hidden class="card">
+  <p class="eyebrow">Complete</p>
+  <h1>Thank you</h1>
+  <p id="doneMsg"></p>
+  <p class="note">Your answers contribute to the human-evaluation part of a
+    Master's thesis at the TUM Chair of Geoinformatics.</p>
+  <div id="submitBlock"></div>
+</div>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------
+// Endpoint. Paste the Google Apps Script /exec URL here (README §3).
+// null falls back to a manual result code, which works but loses anyone
+// who forgets to send it.
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// Where answers go. Two backends are supported; set ONE.
+//
+// Supabase (preferred -- roughly 50 ms per write). A plain REST insert,
+// no SDK and no extra script tag, so the page stays self-contained.
+// The anon key is MEANT to be public: it is restricted by a row-level
+// security policy that permits INSERT and nothing else, so a visitor can
+// submit answers but cannot read anyone's, including their own.
+//
+// Google Apps Script (fallback, ~300-800 ms per write). Every POST goes
+// through a 302 redirect and appendRow takes a lock on the sheet, which
+// is why it feels slow.
+// ---------------------------------------------------------------------
+const SUPABASE_URL = "https://gctypkighhmblxbxdckv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_oZtTcRTl4h84LZQyPQyiHg_DUtLbG3m";
+
+const RESULTS_ENDPOINT = "https://script.google.com/macros/s/AKfycbyLw9jspzqmxg7hRmcupCNlRk8rrHyMCULVRRSPtJSNkLhVeZRzLkHGJ0vAay9dIX-jwA/exec";
+
+const USE_SUPABASE = !!(SUPABASE_URL && SUPABASE_KEY);
+
+const SAVE_KEY  = 'uav-rooftype-025-v2';
+const QUEUE_KEY = 'uav-rooftype-025-queue-v2';
+
+// Random per-sitting id, generated in the browser. NOT an identifier of
+// the person: not derived from anything about them, never linked to any
+// other record, and used only to group trials when scoring.
+function newSession(){
+  const a = new Uint8Array(8);
+  (window.crypto || window.msCrypto).getRandomValues(a);
+  return Array.from(a, b => b.toString(16).padStart(2,'0')).join('');
+}
+let SESSION = localStorage.getItem('uav-session-025') || newSession();
+try { localStorage.setItem('uav-session-025', SESSION); } catch(e){}
+
+// ---------------------------------------------------------------------
+// The AdV "Dachform" codelist, which is the standard the source data is
+// coded against -- so the options are the vocabulary of the domain rather
+// than a list invented for this study.
+//
+// Only three of them ever occur in the stimuli (flat, gabled,
+// monopitch). The other ten are distractors: choosing one is a false
+// positive, and a model producing ambiguous roofs will attract them.
+// Offering only the three that appear would make the task solvable by
+// elimination.
+//
+// Each carries a rendered example. Asking a non-architect to distinguish
+// "jerkinhead" from "mansard" by name alone is not a reasonable request;
+// the drawing is what makes the option meaningful.
+// ---------------------------------------------------------------------
+const OPTIONS = [
+  {v:'flat',        n:'Flat',        h:'no visible slope'},
+  {v:'monopitch',   n:'Monopitch',   h:'one single slope'},
+  {v:'gabled',      n:'Gabled',      h:'two slopes to a ridge'},
+  {v:'hipped',      n:'Hipped',      h:'slopes on all four sides'},
+  {v:'half_hipped', n:'Jerkinhead',  h:'gable with clipped top'},
+  {v:'mansard',     n:'Mansard',     h:'steep then shallow'},
+  {v:'tented',      n:'Tent',        h:'four slopes to a point'},
+  {v:'tower',       n:'Tower',       h:'tall, narrow spire'},
+  {v:'conical',     n:'Conical',     h:'a smooth cone'},
+  {v:'domed',       n:'Domed',       h:'a rounded dome'},
+  {v:'curved',      n:'Arched',      h:'barrel-vaulted'},
+  {v:'sawtooth',    n:'Sawtooth',    h:'repeated stepped slopes'},
+  {v:'staggered_monopitch', n:'Staggered monopitch',
+                                     h:'two offset single slopes'},
+  {v:'none',        n:'None of the above / can’t tell', h:''}
+];
+
+let stim = [], i = 0, answers = {};
+
+fetch('stimuli.json').then(r => r.json()).then(d => {
+  stim = d.slice();
+  for (let k = stim.length - 1; k > 0; k--) {         // per-participant order
+    const j = Math.floor(Math.random() * (k + 1));
+    [stim[k], stim[j]] = [stim[j], stim[k]];
+  }
+  document.getElementById('fN').textContent = stim.length;
+  buildOptions();
+  // Any answers still queued from an earlier visit are delivered, but the
+  // session itself always starts fresh: no resume, no partially-completed
+  // state to reason about.
+  flush();
+}).catch(() => alert('Could not load the images. Please reload the page.'));
+
+/* Guards against scroll gestures being recorded as answers (see the
+   listeners attached to each option below). `lastScrollAt` is updated on
+   every scroll; a click arriving within 400 ms of one is treated as the
+   tail of that scroll, not as a deliberate choice. */
+let lastScrollAt = 0, touchStart = null, touchMoved = false;
+addEventListener('scroll', () => { lastScrollAt = Date.now(); }, {passive: true});
+
+function buildOptions(){
+  const box = document.getElementById('opts');
+  box.innerHTML = '';
+  OPTIONS.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'opt' + (o.v === 'none' ? ' wide' : '');
+    // The options are voxel buildings in the same colours and projection
+    // as the stimuli, so a participant matches like to like rather than
+    // translating a line diagram. Hand-drawn SVG was tried first and
+    // failed: at icon size, gabled/hipped/mansard/jerkinhead all
+    // collapsed into the same small blob. Normalised by
+    // study/prepare_icons.py -- one canvas, one scale, transparent.
+    b.innerHTML = (o.v === 'none' ? '<span class="qmark">?</span>'
+                                  : `<img class="ricon" src="roof/${o.v}.png" alt="">`)
+                + '<b>' + o.n + '</b>'
+                + (o.h ? '<small>' + o.h + '</small>' : '');
+    // A tap that ends a scroll must not count as an answer. On mobile the
+    // option grid is taller than the viewport, so a participant scrolls
+    // down to read the options and back up for the next building; with a
+    // bare click handler, the finger landing on a card during that scroll
+    // is recorded as a choice. Reported repeatedly by participants, and
+    // visible in the data as answers arriving 0.14-0.16 s apart -- below
+    // choice-reaction time for 13 alternatives.
+    b.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      touchStart = {x: t.clientX, y: t.clientY};
+      touchMoved = false;
+    }, {passive: true});
+    b.addEventListener('touchmove', e => {
+      if (!touchStart) return;
+      const t = e.touches[0];
+      if (Math.hypot(t.clientX - touchStart.x, t.clientY - touchStart.y) > 10)
+        touchMoved = true;
+    }, {passive: true});
+    b.onclick = () => {
+      if (touchMoved || Date.now() - lastScrollAt < 400) { touchMoved = false; return; }
+      choose(o.v);
+    };
+    box.appendChild(b);
+  });
+}
+
+/* ---------- persistence ---------- */
+function save(){
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(
+    {v:2, answers, i, order:stim, ts:Date.now()})); } catch(e){}
+}
+// No load(): sessions never resume. The unsent-answer queue is separate
+// and IS restored, so a dropped connection still recovers.
+function clearSaved(){
+  try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(QUEUE_KEY); }
+  catch(e){}
+  location.reload();
+}
+
+/* ---------- automatic submission ----------
+   Each answer is sent as it happens, so someone who answers twelve
+   buildings and closes the tab still contributes twelve trials. Failed
+   sends stay queued and retry on the next answer and the next visit. */
+function loadQueue(){
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveQueue(q){
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch(e){}
+}
+// ---- send status -----------------------------------------------------
+// Three states, always on screen: sending, saved, or pending-with-a-retry.
+function setStatus(state, text, offerRetry){
+  const dot = document.getElementById('dot');
+  const txt = document.getElementById('statusText');
+  const btn = document.getElementById('sendNow');
+  if (!dot) return;
+  dot.className = 'dot' + (state ? ' ' + state : '');
+  txt.textContent = text;
+  btn.hidden = !offerRetry;
+}
+function refreshStatus(){
+  const n = loadQueue().length;
+  if (!n) setStatus('saved', 'All answers sent.', false);
+  else setStatus('pending', n + ' answer' + (n>1?'s':'') +
+                 ' saved on this device, not yet sent.', true);
+}
+async function sendNow(){
+  setStatus('sending', 'Sending…', false);
+  await flush();
+  const n = loadQueue().length;
+  if (n) setStatus('pending', n + ' answer' + (n>1?'s':'') +
+                   ' still waiting — check your connection.', true);
+  else setStatus('saved', 'All answers sent.', false);
+}
+
+let flushing = false;
+async function flush(){
+  if (!(USE_SUPABASE || RESULTS_ENDPOINT) || flushing) return;
+  const q = loadQueue();
+  if (!q.length) return;
+  flushing = true;
+  setStatus('sending', 'Sending…', false);
+  try {
+    let res;
+    if (USE_SUPABASE) {
+      // One insert for the whole queue, so a backlog costs one request.
+      res = await fetch(SUPABASE_URL + '/rest/v1/responses', {
+        method:'POST',
+        headers:{
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'      // do not send the rows back
+        },
+        body: JSON.stringify(q.map(r => ({
+          session: SESSION,
+          client_time: new Date(r.ts).toISOString(),
+          img: r.img,
+          choice: r.choice
+        })))
+      });
+    } else {
+      // text/plain avoids a CORS preflight, which Apps Script does not answer
+      res = await fetch(RESULTS_ENDPOINT, {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({session:SESSION, task:'rooftype_025', rows:q})
+      });
+    }
+    if (res.ok) { saveQueue([]); }
+    else {
+      // A non-2xx is a real rejection, not a network blip -- surface it
+      // rather than retrying forever behind a reassuring message.
+      let detail = '';
+      try { detail = (await res.text()).slice(0, 140); } catch (e) {}
+      console.error('submit rejected', res.status, detail);
+      setStatus('pending', 'Server rejected the answers (HTTP ' + res.status +
+                '). They are saved here — please tell the researcher.', true);
+      flushing = false;
+      return;
+    }
+  } catch(e){
+    console.error('submit failed', e);
+  }
+  finally { flushing = false; }
+  refreshStatus();
+}
+function record(img, choice){
+  const q = loadQueue();
+  q.push({img, choice, ts:Date.now()});
+  saveQueue(q);
+  refreshStatus();
+  flush();
+}
+window.addEventListener('pagehide', () => {
+  const q = loadQueue();
+  if (!q.length || !navigator.sendBeacon) return;
+  if (USE_SUPABASE) {
+    // sendBeacon cannot set an apikey header, so the key rides as a query
+    // parameter -- supported by PostgREST and no less safe, since the key
+    // is public by design.
+    navigator.sendBeacon(
+      SUPABASE_URL + '/rest/v1/responses?apikey=' + encodeURIComponent(SUPABASE_KEY),
+      new Blob([JSON.stringify(q.map(r => ({
+        session: SESSION, client_time: new Date(r.ts).toISOString(),
+        img: r.img, choice: r.choice })))], {type:'application/json'}));
+  } else if (RESULTS_ENDPOINT) {
+    navigator.sendBeacon(RESULTS_ENDPOINT, new Blob(
+      [JSON.stringify({session:SESSION, task:'rooftype_025', rows:q})],
+      {type:'text/plain;charset=utf-8'}));
+  }
+});
+
+/* ---------- flow ---------- */
+function start(){
+  if (!stim.length) return;
+  // A new sitting each time: fresh session id, no carried-over answers.
+  SESSION = newSession();
+  try { localStorage.setItem('uav-session-025', SESSION); } catch(e){}
+  i = 0; answers = {};
+  loadPrefs();          // the controls only exist once the task is shown
+  go();
+}
+function go(){
+  document.getElementById('intro').hidden = true;
+  document.getElementById('done').hidden = true;
+  document.getElementById('task').hidden = false;
+  window.scrollTo(0,0);
+  refreshStatus();
+  flush();            // deliver anything stranded from a previous visit
+  show();
+}
+function show(){
+  while (i < stim.length && answers[stim[i].img] !== undefined) i++;
+  if (i >= stim.length){ finish(true); return; }
+  setSpin(stim[i].img);
+  preload(i + 1);
+  document.getElementById('counter').textContent = `Building ${i+1} of ${stim.length}`;
+  const n = Object.keys(answers).length;
+  document.getElementById('answered').textContent = `${n} answered`;
+  document.getElementById('prog').style.width = (100*n/stim.length) + '%';
+}
+// ---- rotation ---------------------------------------------------------
+let SPIN = {angles:12, cols:4, px:260};
+let frame = 0, spinTimer = null, dragging = false, dragX = 0, dragFrame = 0;
+
+fetch('spin_meta.json').then(r => r.json()).then(m => { SPIN = m; })
+  .catch(() => {});   // falls back to the defaults above
+
+function setSpin(img){
+  const el = document.getElementById('spin');
+  const still = document.getElementById('stim');
+  el.style.backgroundImage = `url("spin/${img}")`;
+  const rows = Math.ceil(SPIN.angles / SPIN.cols);
+  el.style.backgroundSize = `${SPIN.cols * 100}% ${rows * 100}%`;
+  // If the sheet is missing for any reason, fall back to the still image
+  // rather than showing an empty box.
+  const probe = new Image();
+  probe.onerror = () => { el.hidden = true; still.hidden = false;
+                          still.src = 'img/' + img;
+                          document.querySelector('.spinhint').hidden = true; };
+  probe.onload = () => { el.hidden = false; still.hidden = true;
+                         document.querySelector('.spinhint').hidden = false; };
+  probe.src = `spin/${img}`;
+  frame = 0; drawFrame();
+  restartSpin();
+}
+
+/* ---- rotation controls ----
+   Milliseconds per frame; twelve frames make a revolution, so index 2 is
+   the 2.2 s turn this shipped with. Kept as a fixed ladder rather than a
+   continuous range so every participant is on one of six known speeds --
+   a free-form value would be one more uncontrolled variable across
+   sessions, for no benefit to the person using it. */
+const SPEEDS = [420, 300, 180, 120, 80, 55];
+let paused = false, speedIdx = 2;
+
+function restartSpin(){
+  clearInterval(spinTimer);
+  if (paused) return;
+  spinTimer = setInterval(() => { if (!dragging){ frame++; drawFrame(); } },
+                          SPEEDS[speedIdx]);
+}
+
+function togglePlay(){
+  paused = !paused;
+  const b = document.getElementById('playBtn');
+  b.innerHTML = paused ? '&#9654; Play' : '&#10073;&#10073; Pause';
+  b.setAttribute('aria-label', paused ? 'resume rotation' : 'pause rotation');
+  restartSpin();
+  savePrefs();
+}
+
+function setSpeed(v){
+  speedIdx = Math.min(SPEEDS.length - 1, Math.max(0, +v));
+  // Changing speed while paused should not silently start it moving
+  // again -- the participant stopped it deliberately.
+  restartSpin();
+  savePrefs();
+}
+
+// Chosen once, not per building: these persist across all 128 trials.
+function savePrefs(){
+  try { localStorage.setItem('uav-spin-025',
+        JSON.stringify({paused, speedIdx})); } catch(e){}
+}
+function loadPrefs(){
+  try {
+    const p = JSON.parse(localStorage.getItem('uav-spin-025') || 'null');
+    if (!p) return;
+    if (typeof p.speedIdx === 'number') speedIdx = p.speedIdx;
+    paused = !!p.paused;
+  } catch(e){}
+  const s = document.getElementById('speed');
+  if (s) s.value = speedIdx;
+  const b = document.getElementById('playBtn');
+  if (b){
+    b.innerHTML = paused ? '&#9654; Play' : '&#10073;&#10073; Pause';
+    b.setAttribute('aria-label', paused ? 'resume rotation' : 'pause rotation');
+  }
+}
+
+function drawFrame(){
+  const el = document.getElementById('spin');
+  const rows = Math.ceil(SPIN.angles / SPIN.cols);
+  const f = ((frame % SPIN.angles) + SPIN.angles) % SPIN.angles;
+  const cx = f % SPIN.cols, cy = Math.floor(f / SPIN.cols);
+  el.style.backgroundPosition =
+    `${(cx * 100) / (SPIN.cols - 1)}% ${(cy * 100) / (rows - 1)}%`;
+}
+
+function preload(n){
+  for (let k = n; k < Math.min(n + 2, stim.length); k++)
+    new Image().src = 'spin/' + stim[k].img;
+}
+
+(function dragToSpin(){
+  const el = () => document.getElementById('spin');
+  const down = e => { dragging = true; dragX = (e.touches?e.touches[0]:e).clientX;
+                      dragFrame = frame; };
+  const move = e => {
+    if (!dragging) return;
+    const x = (e.touches ? e.touches[0] : e).clientX;
+    frame = dragFrame + Math.round((x - dragX) / 18);
+    drawFrame();
+    if (e.cancelable) e.preventDefault();
+  };
+  const up = () => { dragging = false; };
+  document.addEventListener('pointerdown', e => { if (e.target === el()) down(e); });
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+  document.addEventListener('pointercancel', up);
+})();
+
+function choose(v){ answers[stim[i].img] = v; record(stim[i].img, v); i++; save(); show(); }
+function skip(){ record(stim[i].img, '(skipped)'); i++; save(); show(); }
+
+function finish(complete){
+  document.getElementById('task').hidden = true;
+  document.getElementById('done').hidden = false;
+  window.scrollTo(0,0);
+  const n = Object.keys(answers).length;
+  document.getElementById('doneMsg').textContent = complete
+    ? `That is all ${n} buildings — thank you for completing the study.`
+    : `You answered ${n} of ${stim.length} buildings. Partial responses are `
+      + `just as usable, so nothing is wasted.`;
+  const block = document.getElementById('submitBlock');
+  const payload = {v:2, task:'rooftype_025', session:SESSION, ts:Date.now(), n, answers};
+  if (RESULTS_ENDPOINT){
+    block.innerHTML = '<p class="note">Saving…</p>';
+    flush().then(() => {
+      block.innerHTML = loadQueue().length
+        ? '<p class="note">Your answers are saved on this device and will be '
+          + 'sent automatically next time you open this page with a '
+          + 'connection. You may close this tab.</p>'
+        : '<p class="note">Your responses were saved. You may close this tab.</p>';
+    });
+  } else { showCode(block, payload); }
+}
+function showCode(block, payload){
+  const code = btoa(JSON.stringify(payload));
+  block.innerHTML = '<p class="note">Please send this result code back to the '
+    + 'researcher:</p><code id="code">' + code + '</code>'
+    + '<div class="row"><button class="act" onclick="copyCode()">Copy code</button>'
+    + '<button class="ghost" onclick="dl()">Download as file</button></div>';
+  window._payload = payload;
+}
+function copyCode(){
+  navigator.clipboard.writeText(document.getElementById('code').textContent)
+    .then(() => alert('Copied.'));
+}
+function dl(){
+  const blob = new Blob([JSON.stringify(window._payload, null, 1)],
+                        {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'study-response.json';
+  a.click();
+}
+</script>
+</body>
+</html>

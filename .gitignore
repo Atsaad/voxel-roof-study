@@ -1,0 +1,4 @@
+# The answer key must never be published. It lives in the main repository
+# (urban-auto-vox-rs-master/study/study_*/answer_key.json), outside this one,
+# but this guards against a stray copy being committed by accident.
+answer_key*.json
