@@ -288,10 +288,21 @@ const QUEUE_KEY = 'uav-rooftype-025-queue-v2';
 // Random per-sitting id, generated in the browser. NOT an identifier of
 // the person: not derived from anything about them, never linked to any
 // other record, and used only to group trials when scoring.
+/* Session ids here carry a study prefix.
+   The Supabase branch below writes only {session, client_time, img, choice}
+   -- there is no `task` column, and inventing one would make PostgREST
+   reject every insert with a 400, losing the data outright. Both studies
+   therefore write into the same table with nothing to tell them apart.
+   Prefixing the session id uses a column that certainly exists, so rows can
+   be selected per study with `session=like.r025-%` and the two datasets
+   never have to be untangled by hand. */
+const STUDY_PREFIX = 'r025-';
+
 function newSession(){
   const a = new Uint8Array(8);
   (window.crypto || window.msCrypto).getRandomValues(a);
-  return Array.from(a, b => b.toString(16).padStart(2,'0')).join('');
+  return STUDY_PREFIX +
+         Array.from(a, b => b.toString(16).padStart(2,'0')).join('');
 }
 let SESSION = localStorage.getItem('uav-session-025') || newSession();
 try { localStorage.setItem('uav-session-025', SESSION); } catch(e){}
@@ -557,7 +568,7 @@ let frame = 0, spinTimer = null, dragging = false, dragX = 0, dragFrame = 0;
 fetch('spin_meta.json').then(r => r.json()).then(m => { SPIN = m; })
   .catch(() => {});   // falls back to the defaults above
 
-const USE_SPIN = false;   // <- set true once every sprite sheet exists
+const USE_SPIN = true;    // all 128 sheets present and re-framed
 
 function setSpin(img){
   // Uniform presentation: until USE_SPIN is true, every building is shown
