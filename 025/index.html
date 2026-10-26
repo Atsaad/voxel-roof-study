@@ -350,10 +350,10 @@ fetch('stimuli.json').then(r => r.json()).then(d => {
   }
   document.getElementById('fN').textContent = stim.length;
   buildOptions();
-  // Any answers still queued from an earlier visit are delivered, but the
-  // session itself always starts fresh: no resume, no partially-completed
-  // state to reason about.
-  flush();
+  // Answers queued from an earlier visit are NOT delivered automatically:
+  // reopening the page is not a submission. They stay queued and the
+  // "Submit now" control appears, so sending is always a deliberate act.
+  refreshStatus();
 }).catch(() => alert('Could not load the images. Please reload the page.'));
 
 /* Guards against scroll gestures being recorded as answers (see the
@@ -442,7 +442,10 @@ function setStatus(state, text, offerRetry){
 }
 function refreshStatus(){
   const n = loadQueue().length;
-  if (!n) setStatus('saved', 'All answers sent.', false);
+  // "All answers sent" is only true once something has actually been sent;
+  // before the first submit an empty queue just means nothing is pending.
+  if (!n) setStatus('saved', submitted ? 'All answers sent.'
+                                       : 'Answers are saved on this device.', false);
   else setStatus('pending', n + ' answer' + (n>1?'s':'') +
                  ' saved on this device, not yet sent.', true);
 }
@@ -455,6 +458,7 @@ async function sendNow(){
   else setStatus('saved', 'All answers sent.', false);
 }
 
+let submitted = false;
 let flushing = false;
 async function flush(){
   if (!(USE_SUPABASE || RESULTS_ENDPOINT) || flushing) return;
@@ -488,7 +492,7 @@ async function flush(){
         body: JSON.stringify({session:SESSION, task:'rooftype_025', rows:q})
       });
     }
-    if (res.ok) { saveQueue([]); }
+    if (res.ok) { saveQueue([]); submitted = true; }
     else {
       // A non-2xx is a real rejection, not a network blip -- surface it
       // rather than retrying forever behind a reassuring message.
@@ -506,31 +510,24 @@ async function flush(){
   finally { flushing = false; }
   refreshStatus();
 }
+/* Answers are held on this device and sent ONLY when the participant
+   submits -- either by finishing all buildings or by pressing
+   "Stop & submit". Previously every click posted immediately, which meant
+   a tab opened out of curiosity, or a run abandoned after three trials,
+   was already in the dataset and indistinguishable from a real session.
+   The queue still lives in localStorage, so a crash or an accidental close
+   loses nothing: the answers are offered back on the next visit. */
 function record(img, choice){
   const q = loadQueue();
   q.push({img, choice, ts:Date.now()});
   saveQueue(q);
   refreshStatus();
-  flush();
+  // deliberately no flush() here -- see finish()
 }
-window.addEventListener('pagehide', () => {
-  const q = loadQueue();
-  if (!q.length || !navigator.sendBeacon) return;
-  if (USE_SUPABASE) {
-    // sendBeacon cannot set an apikey header, so the key rides as a query
-    // parameter -- supported by PostgREST and no less safe, since the key
-    // is public by design.
-    navigator.sendBeacon(
-      SUPABASE_URL + '/rest/v1/responses?apikey=' + encodeURIComponent(SUPABASE_KEY),
-      new Blob([JSON.stringify(q.map(r => ({
-        session: SESSION, client_time: new Date(r.ts).toISOString(),
-        img: r.img, choice: r.choice })))], {type:'application/json'}));
-  } else if (RESULTS_ENDPOINT) {
-    navigator.sendBeacon(RESULTS_ENDPOINT, new Blob(
-      [JSON.stringify({session:SESSION, task:'rooftype_025', rows:q})],
-      {type:'text/plain;charset=utf-8'}));
-  }
-});
+/* No pagehide beacon. Closing the tab is not a submission, and sending
+   on unload is exactly what put abandoned trials into the dataset. Unsent
+   answers stay in localStorage and are offered again on the next visit. */
+
 
 /* ---------- flow ---------- */
 function start(){
@@ -547,8 +544,7 @@ function go(){
   document.getElementById('done').hidden = true;
   document.getElementById('task').hidden = false;
   window.scrollTo(0,0);
-  refreshStatus();
-  flush();            // deliver anything stranded from a previous visit
+  refreshStatus();    // anything stranded stays queued until submitted
   show();
 }
 function show(){
